@@ -44,7 +44,7 @@ solution:
       - --info=veneers
 
   packs:
-    - pack: ARM::CMSIS@6.0.0
+    - pack: ARM::CMSIS@6.4.0
     - pack: ARM::V2M_MPS3_SSE_300_BSP@1.4.0
     - pack: ARM::CMSIS-Compiler@2.0.0
     - pack: ARM::Cortex_DFP@1.0.0
