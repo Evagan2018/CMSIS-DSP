@@ -3,7 +3,7 @@ name: Build documentation and pack
   workflow_dispatch: null
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: 'true'
+  cancel-in-progress: true
 jobs:
   pack:
     name: Generate pack

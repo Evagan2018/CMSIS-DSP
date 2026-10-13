@@ -42,7 +42,7 @@ jobs:
         cat > "$RUNNER_TEMP/cmsis-pack-test/probe.py" <<'CMSIS_PROBE_EOF'
         #!/usr/bin/env python3
         """Ephemeral runner instrumentation for the CMSIS 6.4.0 campaign (stdlib only)."""
-        import json, os, re, shutil, subprocess, sys, time
+        import json, os, re, shutil, subprocess, sys, time, hashlib
         from pathlib import Path
 
         TARGET = 'ARM::CMSIS@6.4.0'
@@ -104,19 +104,32 @@ jobs:
             if not any('.csolution.' in a for a in args) or any(a in args for a in ['--help', '--version', 'list', 'clean']):
                 return subprocess.call([real] + args)
             changed = prepare()
+            def option(*names):
+                return next((args[i+1] for i,a in enumerate(args[:-1]) if a in names), '')
+            identity = json.dumps([str(Path.cwd()), next(a for a in args if '.csolution.' in a),
+                                   option('-c','--context'),option('--toolchain'),option('--active'),option('-O','--output')])
+            known_path=HOME/('known-'+hashlib.sha256(identity.encode()).hexdigest()+'.json')
+            known=json.loads(known_path.read_text()) if known_path.exists() else {}
             before = {str(p): p.stat().st_mtime_ns for p in files() if p.name.endswith('.cbuild.yml')}
             started = time.time()
             rc = subprocess.call([real] + args)
-            evidence = []
+            evidence = []; current={}
             for p in files():
-                if not p.name.endswith('.cbuild.yml') or before.get(str(p)) == p.stat().st_mtime_ns:
+                if not p.name.endswith('.cbuild.yml'):
                     continue
                 text = p.read_text(encoding='utf-8-sig')
+                digest=hashlib.sha256(text.encode()).hexdigest()
+                fresh=before.get(str(p)) != p.stat().st_mtime_ns
+                if not fresh and known.get(str(p))!=digest:
+                    continue
                 packs = sorted(set(re.findall(r'(?:pack|from-pack):\s*[\"\x27]?(ARM::CMSIS@[^\s\"\x27]+)', text)))
                 if packs:
                     ctx = re.search(r'^\s*context:\s*(.+)$', text, re.M)
                     evidence.append({'file':str(p.relative_to(WORKSPACE)), 'context':ctx[1].strip() if ctx else p.name,
-                                     'packs':packs, 'verified':packs == [TARGET]})
+                                     'packs':packs, 'verified':packs == [TARGET],
+                                     'metadata':'newly written' if fresh else 'unchanged; same solution/context/toolchain invocation'})
+                    current[str(p)]=digest
+            known_path.write_text(json.dumps(current))
             build_action = not any(a in args for a in ['setup', 'convert'])
             good = bool(evidence) and all(e['verified'] for e in evidence)
             record = {'kind':'build' if build_action else 'setup','cwd':str(Path.cwd()),'args':args,
