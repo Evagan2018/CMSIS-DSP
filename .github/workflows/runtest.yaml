@@ -26,11 +26,11 @@ jobs:
     - name: Install system packages
       run: |
         sudo add-apt-repository ppa:deadsnakes/ppa
-        sudo apt-get install libpython3.12 libtinfo5
+        sudo apt-get update
+        sudo apt-get install -y libtinfo5
+        echo "LD_LIBRARY_PATH=$pythonLocation/lib:$LD_LIBRARY_PATH" >> "$GITHUB_ENV"
     - name: Activate vcpkg
       uses: ARM-software/cmsis-actions/vcpkg@v1
-    - name: Activate Arm tool license
-      uses: ARM-software/cmsis-actions/armlm@v1
     - name: Prepare framework
       run: |
         cd Testing
